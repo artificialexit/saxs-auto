@@ -132,14 +132,7 @@ if __name__ == '__main__':
     ## broadcast to buffers and samples
     pipe = broadcast(buffers, samples)
     
-    ## from xml not redis so we untangle
-    pipe = untangle_xml(pipe)
-    
-    
-    ## pump data through pipes
-    with open("data/livelogfile.log") as logfile:
-        for line in logfile:
-            pipe.send(line.strip())    if offline == False:
+    if offline == False:
         ## Redis Beamline Version
         exp_directory = 'beamline'
         r = redis.StrictRedis(host='localhost', port=6379, db=0)
