@@ -115,6 +115,17 @@ class Buffer(object):
 
 
 if __name__ == '__main__':    
+    
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('exp_directory', nargs='?', default=os.getcwd(), type=str, help="location of experiment to run auto-processor on")
+    parser.add_argument("-o","--offline", action="store_true", help="set this switch when not running on active experiment on beamline.")
+
+    args = parser.parse_args()
+        
+    offline = args.offline
+    exp_directory = args.exp_directory
+    
     if offline == True :
         redis_dat = no_op
     
