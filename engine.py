@@ -133,7 +133,7 @@ if __name__ == '__main__':
     buffers = filter_on_attr('SampleType', '0', load_dat(average(broadcast(save_dat('avg'), redis_dat('avg_buf'), store_obj(Buffer)))))
         
     ## samples pipeline
-    subtract_pipe = retrive_obj(Buffer, broadcast(subtract(save_dat('sub'), redis_dat('avg_sub'))))
+    subtract_pipe = retrive_obj(Buffer, subtract(braodcast(save_dat('sub'), redis_dat('avg_sub'))))
     average_subtract_pipe = average(broadcast(save_dat('avg'), redis_dat('avg_smp'), subtract_pipe))
     raw_subtract_pipe = retrive_obj(Buffer, subtract(save_dat('raw_sub')))
     
@@ -147,9 +147,9 @@ if __name__ == '__main__':
         ## Redis Beamline Version
         exp_directory = 'beamline'
         r = redis.StrictRedis(host='localhost', port=6379, db=0)
-        while true:
+        while True:
             logline = r.hgetall(r.brpoplpush('logline:queue', 'logline:processed'))
-            pipe.send(line.strip())
+            pipe.send(logline)
     else:
         ## File version
         # if from xml we untangle
