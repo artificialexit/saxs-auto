@@ -5,6 +5,7 @@ import argparse
 import logbook
 import untangle
 import redis
+import pickle
 
 from dat import DatFile
 import dat
