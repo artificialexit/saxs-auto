@@ -17,7 +17,7 @@ def average(dat_list):
     result.intensities = [ sum(row) / float(len(row)) for row in zip(*(dat.intensities for dat in dat_list)) ]
     
     # when we save we just want the rootname (as this is averaged)
-    result.filename = dat_list[-1].rootname
+    result.filename = os.path.join(dat_list[-1].dirname,dat_list[-1].rootname)
     # another option could be (ie the name of the first frane used)
     #result.filename = data_list[0].basename
     return result

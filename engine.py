@@ -35,8 +35,6 @@ def untangle_xml(target):
 @coroutine
 def filter_on_attr(attr, value, target):
     while True:
-        print attr
-        print value
         item = (yield)
         print item[attr]
         if item[attr] == value:
@@ -45,6 +43,7 @@ def filter_on_attr(attr, value, target):
 @coroutine
 def load_dat(target):
     while True:
+        
         item = (yield)
         directory,filename = os.path.split(item['ImageLocation'])
         filename = ''.join((os.path.splitext(filename)[0], '.dat'))
@@ -56,7 +55,11 @@ def load_dat(target):
             ## Offline mode
             patharray = [exp_directory,'raw_dat',filename]
 
-        target.send(DatFile(os.path.join(*patharray)))
+        try:
+            target.send(DatFile(os.path.join(*patharray)))
+        except EnvironmentError:
+            pass
+            
 
 @coroutine        
 def average(target=None):
@@ -86,8 +89,10 @@ def subtract(target=None):
 def save_dat(folder, prefix=None):
     while True:
         dat = (yield)
+        
         if exp_directory == 'beamline' :
             ## For version running on beamline
+            
             patharray = ['/data/pilatus1M'] + directory.split('/')[4:-1] + [folder,dat.filename]
         else:
             ## Offline mode
