@@ -46,12 +46,12 @@ def load_dat(target):
         directory,filename = os.path.split(item['ImageLocation'])
         filename = ''.join((os.path.splitext(filename)[0], '.dat'))
         
-        if dataDirectory == 'beamline' :
+        if exp_directory == 'beamline' :
             ## For version running on beamline
             patharray = ['/data/pilatus1M'] + directory.split('/')[4:-1] + ['raw_dat',filename]
         else:
             ## Offline mode
-            patharray = [dataDirectory,'raw_dat',filename]
+            patharray = [exp_directory,'raw_dat',filename]
 
         target.send(DatFile(os.path.join(*patharray)))
 
@@ -119,12 +119,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('exp_directory', nargs='?', default=os.getcwd(), type=str, help="location of experiment to run auto-processor on")
+    parser.add_argument('log_path', nargs='?', default='images/livelogfile.log', type=str, help="logfile path and name. Fully qualified or relative to experiment directory")
     parser.add_argument("-o","--offline", action="store_true", help="set this switch when not running on active experiment on beamline.")
 
     args = parser.parse_args()
         
     offline = args.offline
     exp_directory = args.exp_directory
+    log_path = args.log_path
     
     if offline == True :
         redis_dat = no_op
@@ -154,6 +156,6 @@ if __name__ == '__main__':
         ## File version
         # if from xml we untangle
         pipe = untangle_xml(pipe)
-        with open("data/livelogfile.log") as logfile:
+        with open(log_path) as logfile:
             for line in logfile:
                 pipe.send(line.strip())
