@@ -89,7 +89,7 @@ def subtract(target=None):
 def save_dat(folder, prefix=None):
     while True:
         dat = (yield)
-        
+        directory = dat.dirname
         if exp_directory == 'beamline' :
             ## For version running on beamline
             
