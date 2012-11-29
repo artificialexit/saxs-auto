@@ -29,13 +29,16 @@ def untangle_xml(target):
         item = (yield)        
         ## do conversion (only ever has 1 child)
         item = untangle.parse(item).children[0]
-        item['ImageLocation'] = item.cdata
+        item._attributes['ImageLocation'] = item.cdata
         target.send(item)
             
 @coroutine
 def filter_on_attr(attr, value, target):
     while True:
+        print attr
+        print value
         item = (yield)
+        print item[attr]
         if item[attr] == value:
             target.send(item)
             
@@ -83,7 +86,15 @@ def subtract(target=None):
 def save_dat(folder, prefix=None):
     while True:
         dat = (yield)
-        dat.save(os.path.join(folder, dat.filename))
+        if exp_directory == 'beamline' :
+            ## For version running on beamline
+            patharray = ['/data/pilatus1M'] + directory.split('/')[4:-1] + [folder,dat.filename]
+        else:
+            ## Offline mode
+            patharray = [exp_directory,folder,dat.filename]
+        
+        dat.save(os.path.join(*patharray))
+        
         
 @coroutine
 def redis_dat(channel):
