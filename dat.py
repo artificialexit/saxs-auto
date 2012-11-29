@@ -28,8 +28,8 @@ def subtract(dat_one, dat_two):
     result.q = dat_one.q
     result.errors = [ math.sqrt(sum(el**2 for el in row))/ float(len(row)) for row in zip(dat_one.errors, dat_two.errors) ]
     result.intensities = [ row[0] - row[1] for row in zip(dat_one.intensities, dat_two.intensities) ]
-    
-    result.filename = dat_one.basename
+   
+    result.filename = os.path.join(dat_one.dirname,dat_one.basename)
     return result
 
 
