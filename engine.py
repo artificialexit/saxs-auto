@@ -105,7 +105,7 @@ def save_dat(folder, prefix=None):
 def redis_dat(channel):
     while True:
         dat =(yield)
-        profile = zip(data.q, data.intensities)
+        profile = zip(dat.q, dat.intensities)
         pickled = pickle.dumps({'filename': dat.filename, 'profile': profile})
         r.publish("logline:pub:%s" % (channel, ), pickled)
         r.set("logline:%s" % (channel, ), pickled)
