@@ -118,6 +118,10 @@ class DatFile(object):
         return os.path.basename(self.filename)
     
     @property
+    def dirname(self):
+        return os.path.dirname(self.filename)
+    
+    @property
     def highq(self):
         return sum(self.intensities[-20:-1])
     
