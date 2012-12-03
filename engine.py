@@ -50,7 +50,7 @@ def load_dat(target):
         
         if exp_directory == 'beamline' :
             ## For version running on beamline
-            patharray = ['/data/pilatus1M'] + directory.split('/')[6:-1] + ['raw_dat',filename]
+            patharray = ['/data/pilatus1M'] + directory.split('/')[4:-1] + ['raw_dat',filename]
         else:
             ## Offline mode
             patharray = [exp_directory,'raw_dat',filename]
@@ -95,7 +95,7 @@ def save_dat(folder, prefix=None):
             filename = os.path.join(os.path.split(directory)[0], folder, dat.basename)
         else:
             ## Offline mode
-            filename = os.path.join(exp_directory,folder,dat.filename)
+            filename = os.path.join(exp_directory,folder,dat.basename)
         
         print "saving profile to %s" % (filename,)
         dat.save(filename)
