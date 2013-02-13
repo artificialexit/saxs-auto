@@ -111,7 +111,10 @@ class DatFile(object):
         
     @property
     def rootname(self):
-        return "".join((self.basename.rsplit('_', 1)[0], '.dat'))
+        try:
+            return "".join((self.basename.rsplit('_', 1)[0], '.dat'))
+        except:
+            return ""
     
     @property
     def basename(self):

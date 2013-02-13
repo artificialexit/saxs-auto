@@ -6,9 +6,12 @@ import logbook
 import untangle
 import redis
 import pickle
+import yaml
 
 from dat import DatFile
 import dat
+
+from Pipeline import Pipeline
 
 def coroutine(func):
     def start(*args,**kwargs):
@@ -100,6 +103,14 @@ def save_dat(folder, prefix=None):
         print "saving profile to %s" % (filename,)
         dat.save(filename)
         
+@coroutine
+def send_pipeline():
+    while True:
+        dat = (yield)
+        filename = dat.filename
+        epn, experiment = filename.split('/')[4:6]
+        print "epn %s, experiment %s, filename %s" % (epn, experiment, dat.basename)
+        pipeline.runPipeline(epn,experiment,dat.basename)
         
 @coroutine
 def redis_dat(channel):
@@ -111,10 +122,28 @@ def redis_dat(channel):
         r.set("logline:%s" % (channel, ), pickled)
 
 @coroutine
+def filter_new_sample(target):
+    
+    i = 0
+    while True:
+        
+        dat = (yield)
+        if i == 0:
+            sub = dat
+        print 'dat: %s, sub: %s' % (dat.basename,sub.basename)
+        
+        if dat.basename <> sub.basename:
+            target.send(sub)
+            sub = dat
+        
+        i += 1
+        
+
+@coroutine
 def store_obj(obj):
     while True:
         obj.value = (yield)
-        
+
 @coroutine
 def retrive_obj(obj, target):
     while True:
@@ -129,7 +158,6 @@ def no_op(*args, **kwargs):
 class Buffer(object):
     pass
 
-
 if __name__ == '__main__':    
     
     parser = argparse.ArgumentParser()
@@ -137,12 +165,23 @@ if __name__ == '__main__':
     parser.add_argument('exp_directory', nargs='?', default=os.getcwd(), type=str, help="location of experiment to run auto-processor on")
     parser.add_argument('log_path', nargs='?', default='images/livelogfile.log', type=str, help="logfile path and name. Fully qualified or relative to experiment directory")
     parser.add_argument("-o","--offline", action="store_true", help="set this switch when not running on active experiment on beamline.")
-
+    parser.add_argument("-c","--config", default='./settings.conf', action="store_true", help="use this to set config file location for pipeline")
+            
     args = parser.parse_args()
         
     offline = args.offline
     exp_directory = args.exp_directory
     log_path = args.log_path
+    
+    try:
+        stream = file(args.config, 'r') 
+    except IOError:
+        print "Unable to find configuration file settings.conf, exiting."
+        sys.exit(2)
+    
+    config = yaml.load(stream)
+    
+    pipeline = Pipeline.Pipeline(config)
     
     if offline == True :
         redis_dat = no_op
@@ -151,7 +190,8 @@ if __name__ == '__main__':
     buffers = filter_on_attr('SampleType', '0', load_dat(average(broadcast(save_dat('avg'), redis_dat('avg_buf'), store_obj(Buffer)))))
         
     ## samples pipeline
-    subtract_pipe = retrive_obj(Buffer, subtract(broadcast(save_dat('sub'), redis_dat('avg_sub'))))
+    massive_pipe = filter_new_sample(send_pipeline())
+    subtract_pipe = retrive_obj(Buffer, subtract(broadcast(save_dat('sub'), redis_dat('avg_sub'), massive_pipe)))
     average_subtract_pipe = average(broadcast(save_dat('avg'), redis_dat('avg_smp'), subtract_pipe))
     raw_subtract_pipe = retrive_obj(Buffer, subtract(save_dat('raw_sub')))
     
