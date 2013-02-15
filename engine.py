@@ -110,6 +110,7 @@ def send_pipeline():
         filename = dat.filename
         epn, experiment = filename.split('/')[4:6]
         print "epn %s, experiment %s, filename %s" % (epn, experiment, dat.basename)
+        print "send to pipeline"
         pipeline.runPipeline(epn,experiment,dat.basename)
         
 @coroutine
@@ -165,7 +166,7 @@ if __name__ == '__main__':
     parser.add_argument('exp_directory', nargs='?', default=os.getcwd(), type=str, help="location of experiment to run auto-processor on")
     parser.add_argument('log_path', nargs='?', default='images/livelogfile.log', type=str, help="logfile path and name. Fully qualified or relative to experiment directory")
     parser.add_argument("-o","--offline", action="store_true", help="set this switch when not running on active experiment on beamline.")
-    parser.add_argument("-c","--config", default='./settings.conf', action="store_true", help="use this to set config file location for pipeline")
+    parser.add_argument("-c","--config", default='/beamline/apps/saxs-auto/settings.conf', action="store_true", help="use this to set config file location for pipeline")
             
     args = parser.parse_args()
         
