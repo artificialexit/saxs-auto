@@ -90,7 +90,11 @@ class PipelineHarvest:
                 pdbfile = str(folders[-1]).replace('_dam_volume', '-1.pdb')
                 self.redis.hset('pipeline:results:' + datfile, 'DamVolume'+number, value)
                 self.redis.hset('pipeline:results:' + datfile, 'DamPDB'+number, pdbfile)
-
+            
+            self.redis.lpush('pipeline:results:queue','pipeline:results:' + datfile)
+            if self.redis.zscore('pipeline:results:set', 'pipeline:results:' + datfile) == None:
+                numResults = self.redis.zcard('pipeline:results:set')
+                self.redis.zadd('pipeline:results:set', numResults+1, 'pipeline:results:' + datfile)
  
 
 if __name__ == "__main__":
