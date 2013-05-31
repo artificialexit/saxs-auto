@@ -116,7 +116,7 @@ def send_pipeline():
 def redis_dat(channel):
     while True:
         dat =(yield)
-        profile = zip(dat.q, dat.intensities)
+        profile = zip(dat.q, dat.intensities, dat.errors)
         pickled = pickle.dumps({'filename': dat.filename, 'profile': profile})
         r.publish("logline:pub:%s" % (channel, ), pickled)
         r.set("logline:%s" % (channel, ), pickled)
@@ -145,10 +145,13 @@ def store_obj(obj):
         obj.value = (yield)
 
 @coroutine
-def retrive_obj(obj, target):
+def retrieve_obj(obj, target):
     while True:
         item = (yield)
-        target.send((obj.value, item))
+        try:                
+            target.send((obj.value, item))
+        except AttributeError:
+            pass
 
 @coroutine        
 def no_op(*args, **kwargs):
@@ -185,15 +188,25 @@ if __name__ == '__main__':
     
     if offline == True :
         redis_dat = no_op
+    else:
+        ##Load last buffer from redis incase this is a recovery
+        bufferQ,bufferProfile,bufferErrors = zip(*pickle.loads(r.get('logline:avg_buf')))
+        bufferDat = DatFile()
+        bufferDat.q = bufferQ
+        bufferDat.intensities = bufferProfile
+        bufferDat.errors = bufferErrors
+        Buffer = Buffer()
+        Buffer.value = bufferDat
+        
     
     ## buffer pipeline
     buffers = filter_on_attr('SampleType', '0', load_dat(average(broadcast(save_dat('avg'), redis_dat('avg_buf'), store_obj(Buffer)))))
         
     ## samples pipeline
     massive_pipe = filter_new_sample(send_pipeline())
-    subtract_pipe = retrive_obj(Buffer, subtract(broadcast(save_dat('sub'), redis_dat('avg_sub'), massive_pipe)))
+    subtract_pipe = retrieve_obj(Buffer, subtract(broadcast(save_dat('sub'), redis_dat('avg_sub'), massive_pipe)))
     average_subtract_pipe = average(broadcast(save_dat('avg'), redis_dat('avg_smp'), subtract_pipe))
-    raw_subtract_pipe = retrive_obj(Buffer, subtract(save_dat('raw_sub')))
+    raw_subtract_pipe = retrieve_obj(Buffer, subtract(save_dat('raw_sub')))
     
     samples_pipe = broadcast(average_subtract_pipe, raw_subtract_pipe)
     samples = filter_on_attr('SampleType', '1', load_dat(samples_pipe))
