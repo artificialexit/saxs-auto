@@ -1,4 +1,6 @@
 *.py[co]
+*~
+*.rdb
 
 # Packages
 *.egg
@@ -28,3 +30,6 @@ pip-log.txt
 
 #editor files
 *.komodoproject
+
+#directories
+env/

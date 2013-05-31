@@ -7,15 +7,19 @@ import os
 
 try:
     import yaml
-    import redis
+    from sqlalchemy import create_engine
+    from sqlalchemy.ext.declarative import declarative_base
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy import Column, Integer, String
 except ImportError, e:
     print "ERROR:", e, "which is essential to run auto-processor."
     # sys.exit(2) #this line terminated sphinx docs building on readthedocs.
 
+from models import AverageSubtractedImages
+from models import DamVolumes
 
 class PipelineHarvest:
     def __init__(self, config):
-        self.redis = redis.StrictRedis(host='localhost', port=6379, db=1)
         self.name = "PipelineHarvest"
         self.log = None
         self.config = config
@@ -41,6 +45,13 @@ class PipelineHarvest:
         hdlr.setFormatter(formatter)
         self.log.addHandler(hdlr)
         
+    def createDBEngine(self, database_name):
+        database = self.config.get('database')
+        engine_str = "mysql+mysqldb://%s:%s@%s/%s" % (database['user'], database['passwd'], database['host'], database_name)
+        db_engine = create_engine(engine_str)
+        
+        return db_engine
+
     def runHarvest(self, value_type, file_to_harvest):
         # Set target user, experiment and datfile
         self.TYPE            = value_type
@@ -64,38 +75,45 @@ class PipelineHarvest:
             user_folder = folders[-3]
             database_name = user_folder
         
+        if value_type == "porod_volume":
+            table_name = "average_subtracted_images"
+        elif value_type == "dam_volume":
+            table_name = "dam_volumes"
+        
+        engine = self.createDBEngine(database_name)
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+
         if os.path.isfile(file_to_harvest):
             f = open(file_to_harvest, 'r')
             value = str(f.read())
             value = value.replace('\n','')
             f.close()
 
-            if value_type == "autorg":
-                # save info from autorg to database
-                datfile = str(folders[-1]).replace('_autorg.out', '.dat')
-                values = value.split(' ')
-                keys = ['AutoRG_RG', 'AutoRG_RGE', 'AutoRG_I0', 'AutoRG_I0E', 'AutoRG_Start', 'AutoRG_End', 'AutoRG_Quality', 'AutoRG_ValidFlag']
-                valueMap = {keys[i]: values[i] for i in range(8)}
-                self.redis.hmset('pipeline:results:' + datfile, valueMap)
-
-            elif value_type == "porod_volume":
+            if value_type == "porod_volume":
                 # save "porod volume" value to database
-                datfile = str(folders[-1]).replace('_porod_volume.out', '.dat')
-                self.redis.hset('pipeline:results:' + datfile, 'PorodVolume', value)
+                datfile = str(folders[-1]).replace('_porod_volume', '.dat')
+                obj = session.query(AverageSubtractedImages).filter_by(average_subtracted_location=datfile).first() 
+                obj.porod_volume = value
+                session.commit()
+                
                 
             elif value_type == "dam_volume":
                 # save "Total excluded DAM volume" value to database
                 datfile = str(folders[-1]).replace('_dam_volume', '')[:-2] + '.dat'
-                number = str(folders[-1]).replace('_dam_volume', '')[-1:]                
                 pdbfile = str(folders[-1]).replace('_dam_volume', '-1.pdb')
-                self.redis.hset('pipeline:results:' + datfile, 'DamVolume'+number, value)
-                self.redis.hset('pipeline:results:' + datfile, 'DamPDB'+number, pdbfile)
+                
+                datfile_id = session.query(AverageSubtractedImages).filter_by(average_subtracted_location=datfile).first().id
+                obj = DamVolumes(dammif_pdb_file=pdbfile, dam_volume=value, average_subtracted_images_fk=datfile_id)
+                session.add(obj)
+                session.commit()
+                
+
             
-            self.redis.lpush('pipeline:results:queue','pipeline:results:' + datfile)
-            if self.redis.zscore('pipeline:results:set', 'pipeline:results:' + datfile) == None:
-                numResults = self.redis.zcard('pipeline:results:set')
-                self.redis.zadd('pipeline:results:set', numResults+1, 'pipeline:results:' + datfile)
- 
+            
+            
+  
 
 if __name__ == "__main__":
     configuration = "../settings.conf"
@@ -118,7 +136,7 @@ if __name__ == "__main__":
         if o in ("-f", "--file"):
             file_to_harvest = str(a)
 
-    if value_type not in ["autorg", "porod_volume", "dam_volume", "damaver"]:
+    if value_type not in ["porod_volume", "dam_volume", "damaver"]:
         print "ERROR: Invalid type '%s'. One of 'porod_volume', 'dam_volume', or 'damaver'." % (value_type)
         sys.exit(2)
     

@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 
 import os.path
+import time
 import cStringIO
 import math
 from pprint import pprint
@@ -79,6 +80,15 @@ class DatFile(object):
     
     def load(self, filename):
         
+        count = 0
+        filesize = 0
+        while count < 30:      
+            filesizetemp = os.path.getsize(filename)
+            if filesizetemp == filesize:
+                break
+            filesize=filesizetemp
+            time.sleep(0.1)
+
         def yield_numbers(lines):
             for line in lines:
                 try:
