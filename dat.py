@@ -11,7 +11,14 @@ logger = logbook.Logger(__name__)
 
           
 def average(dat_list):
+    
     result = DatFile()
+
+    if dat_list == None:
+        return result
+    
+    if len(dat_list) == 0:
+        return result
 
     result.q = dat_list[0].q
     result.errors = [ math.sqrt(sum(el**2 for el in row))/ float(len(row)) for row in zip(*(dat.errors for dat in dat_list)) ]
@@ -38,6 +45,9 @@ def rejection(dat_list):
     highq = (dat.highq for dat in dat_list)
     highthresh = 0.92 * max(highq)
     
+    if highthresh == 0:
+        return
+
     dat_list = [dat for dat in dat_list if dat.highq > highthresh]
     
     lowq = (dat.lowq for dat in dat_list)

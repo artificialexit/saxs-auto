@@ -1,7 +1,7 @@
 import os
 
 import argparse
-
+import sys
 import logbook
 import untangle
 import redis
@@ -40,7 +40,7 @@ def untangle_xml(target):
 def filter_on_attr(attr, value, target):
     while True:
         item = (yield)
-        if item[attr] == value:
+        if item[attr] in value:
             target.send(item)
             
 @coroutine
@@ -78,7 +78,9 @@ def average(target=None):
             pass
         
         if target:
-            target.send(dat.average(dat.rejection(dats)))
+            goodDats = dat.rejection(dats)
+            if goodDats != None:
+                target.send(dat.average(goodDats))
             
         
 @coroutine
@@ -191,17 +193,21 @@ if __name__ == '__main__':
         redis_dat = no_op
     else:
         ##Load last buffer from redis incase this is a recovery
-        bufferQ,bufferProfile,bufferErrors = zip(*pickle.loads(r.get('logline:avg_buf')))
-        bufferDat = DatFile()
-        bufferDat.q = bufferQ
-        bufferDat.intensities = bufferProfile
-        bufferDat.errors = bufferErrors
-        Buffer = Buffer()
-        Buffer.value = bufferDat
-        
+        r = redis.StrictRedis(host='localhost', port=6379, db=0)
+        redisBuffer = r.get('logline:avg_buf')
+        try :            
+            bufferQ,bufferProfile,bufferErrors = zip(*pickle.loads(redisBuffer))
+            bufferDat = DatFile()
+            bufferDat.q = bufferQ
+            bufferDat.intensities = bufferProfile
+            bufferDat.errors = bufferErrors
+            Buffer = Buffer()
+            Buffer.value = bufferDat
+        except:
+            pass
     
     ## buffer pipeline
-    buffers = filter_on_attr('SampleType', '0', load_dat(average(broadcast(save_dat('avg'), redis_dat('avg_buf'), store_obj(Buffer)))))
+    buffers = filter_on_attr('SampleType', ['0','3'], load_dat(average(broadcast(save_dat('avg'), redis_dat('avg_buf'), store_obj(Buffer)))))
         
     ## samples pipeline
     massive_pipe = filter_new_sample(send_pipeline())
@@ -210,7 +216,7 @@ if __name__ == '__main__':
     raw_subtract_pipe = retrieve_obj(Buffer, subtract(save_dat('raw_sub')))
     
     samples_pipe = broadcast(average_subtract_pipe, raw_subtract_pipe)
-    samples = filter_on_attr('SampleType', '1', load_dat(samples_pipe))
+    samples = filter_on_attr('SampleType', ['1','4'], load_dat(samples_pipe))
     
     ## broadcast to buffers and samples
     pipe = broadcast(buffers, samples)
@@ -218,7 +224,6 @@ if __name__ == '__main__':
     if offline == False:
         ## Redis Beamline Version
         exp_directory = 'beamline'
-        r = redis.StrictRedis(host='localhost', port=6379, db=0)
         while True:
             logline = r.hgetall(r.brpoplpush('logline:queue', 'logline:processed'))
             pipe.send(logline)
