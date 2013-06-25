@@ -95,7 +95,14 @@ class PipelineHarvest:
             if self.redis.zscore('pipeline:results:set', 'pipeline:results:' + datfile) == None:
                 numResults = self.redis.zcard('pipeline:results:set')
                 self.redis.zadd('pipeline:results:set', numResults+1, 'pipeline:results:' + datfile)
- 
+            
+            #numResults = self.redis.zcard('pipeline:results:set')
+            #resultKeys = self.redis.zrange('pipeline:results:set',0,numResults-1)
+            #file = open('path'+'/analysis.dat','w')
+            #for key in resultKeys:
+            #    results = self.redis.hgetall(key)
+            #    filename = key.split(':')[-1]
+            #    file.write('%s,%s'
 
 if __name__ == "__main__":
     configuration = "../settings.conf"
