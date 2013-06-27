@@ -96,13 +96,15 @@ class PipelineHarvest:
                 numResults = self.redis.zcard('pipeline:results:set')
                 self.redis.zadd('pipeline:results:set', numResults+1, 'pipeline:results:' + datfile)
             
+            # TODO write to ascii file - uncomment this code and test
             #numResults = self.redis.zcard('pipeline:results:set')
             #resultKeys = self.redis.zrange('pipeline:results:set',0,numResults-1)
-            #file = open('path'+'/analysis.dat','w')
+            #file = open('%s/analysis.dat' % (path,),'w')
             #for key in resultKeys:
-            #    results = self.redis.hgetall(key)
+            #    results = ''.join('%s:%s ' % (key,value) for key, val in (self.redis.hgetall(key)).items())
             #    filename = key.split(':')[-1]
-            #    file.write('%s,%s'
+            #    file.write('%s,%s' % (filename,results)
+            #file.close()
 
 if __name__ == "__main__":
     configuration = "../settings.conf"

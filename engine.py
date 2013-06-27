@@ -42,6 +42,13 @@ def filter_on_attr(attr, value, target):
         item = (yield)
         if item[attr] in value:
             target.send(item)
+
+@coroutine
+def filter_on_attr_value(attr, value, target):
+    while True:
+        item = (yield)
+        if float(item[attr]) >= value[0] and float(item[attr]) <= value[1]:
+            target.send(item)
             
 @coroutine
 def load_dat(target):
@@ -63,6 +70,29 @@ def load_dat(target):
         except EnvironmentError:
             pass
             
+
+@coroutine        
+def moving_average(number,target=None):
+    dats = []
+    
+    while True:
+        dats.append((yield))
+        try:
+            # root name change detection
+            if dats[-2].rootname != dats[-1].rootname:
+                dats = dats[-1:]
+        except IndexError:
+            pass
+        
+        if len(dats) > number:
+            dats = dats[-number:]
+        if target:
+            goodDats = dat.rejection(dats)
+            if goodDats != None:
+                print len(goodDats)
+                result = dat.average(goodDats)
+                result.filename = dats[0].filename
+                target.send(result)
 
 @coroutine        
 def average(target=None):
@@ -171,13 +201,14 @@ if __name__ == '__main__':
     parser.add_argument('exp_directory', nargs='?', default=os.getcwd(), type=str, help="location of experiment to run auto-processor on")
     parser.add_argument('log_path', nargs='?', default='images/livelogfile.log', type=str, help="logfile path and name. Fully qualified or relative to experiment directory")
     parser.add_argument("-o","--offline", action="store_true", help="set this switch when not running on active experiment on beamline.")
-    parser.add_argument("-c","--config", default='/beamline/apps/saxs-auto/settings.conf', action="store_true", help="use this to set config file location for pipeline")
+    parser.add_argument("-c","--config", default='/beamline/apps/saxs-auto/settings.conf', action="store", help="use this to set config file location for pipeline")
             
     args = parser.parse_args()
         
     offline = args.offline
     exp_directory = args.exp_directory
     log_path = args.log_path
+    print args.config
     
     try:
         stream = file(args.config, 'r') 
@@ -218,8 +249,14 @@ if __name__ == '__main__':
     samples_pipe = broadcast(average_subtract_pipe, raw_subtract_pipe)
     samples = filter_on_attr('SampleType', ['1','4'], load_dat(samples_pipe))
     
+    sec_subtract_pipe = retrieve_obj(Buffer, subtract(save_dat('avg')))
+    
+    sec_buffer_pipe = filter_on_attr_value('ImageCounter',[4,20],load_dat(average(broadcast(save_dat('avg'),redis_dat('avg_buf'),store_obj(Buffer)))))
+    sec_pipe = filter_on_attr_value('ImageCounter',[21,5000], load_dat(moving_average(5,sec_subtract_pipe)))
+    sec = filter_on_attr('SampleType',['6'], broadcast(sec_pipe, sec_buffer_pipe))
+    
     ## broadcast to buffers and samples
-    pipe = broadcast(buffers, samples)
+    pipe = broadcast(buffers, samples, sec)
     
     if offline == False:
         ## Redis Beamline Version
