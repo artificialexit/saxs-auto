@@ -12,6 +12,7 @@ from dat import DatFile
 import dat
 
 from Pipeline import Pipeline
+from Pipeline import PipelineLite
 
 def coroutine(func):
     def start(*args,**kwargs):
@@ -144,6 +145,18 @@ def send_pipeline():
         print "epn %s, experiment %s, filename %s" % (epn, experiment, dat.basename)
         print "send to pipeline"
         pipeline.runPipeline(epn,experiment,dat.basename)
+
+@coroutine
+def send_pipelinelite():
+    while True:
+        dat = (yield)
+        filename = dat.filename
+        analysis_path = os.path.dirname(os.path.dirname(filename))+'/analysis/'
+        print "start pipelinelite"
+        litePipeline = PipelineLite.PipelineLite(filename,analysis_path)
+        print "run pipelinelite"
+        litePipeline.runPipeline()
+        print "finish run pipelinelite"
         
 @coroutine
 def redis_dat(channel):
@@ -197,14 +210,13 @@ class Buffer(object):
 if __name__ == '__main__':    
     
     parser = argparse.ArgumentParser()
-
     parser.add_argument('exp_directory', nargs='?', default=os.getcwd(), type=str, help="location of experiment to run auto-processor on")
     parser.add_argument('log_path', nargs='?', default='images/livelogfile.log', type=str, help="logfile path and name. Fully qualified or relative to experiment directory")
     parser.add_argument("-o","--offline", action="store_true", help="set this switch when not running on active experiment on beamline.")
     parser.add_argument("-c","--config", default='/beamline/apps/saxs-auto/settings.conf', action="store", help="use this to set config file location for pipeline")
+    parser.add_argument("-l","--lite", action="store_true", help="set this switch to use the local lite pipeline")
             
     args = parser.parse_args()
-        
     offline = args.offline
     exp_directory = args.exp_directory
     log_path = args.log_path
@@ -241,8 +253,13 @@ if __name__ == '__main__':
     buffers = filter_on_attr('SampleType', ['0','3'], load_dat(average(broadcast(save_dat('avg'), redis_dat('avg_buf'), store_obj(Buffer)))))
         
     ## samples pipeline
-    massive_pipe = filter_new_sample(send_pipeline())
-    subtract_pipe = retrieve_obj(Buffer, subtract(broadcast(save_dat('sub'), redis_dat('avg_sub'), massive_pipe)))
+    
+    if args.lite == False:
+        pipeline_pipe = filter_new_sample(send_pipeline())
+    else:
+        pipeline_pipe = filter_new_sample(send_pipelinelite())
+    
+    subtract_pipe = retrieve_obj(Buffer, subtract(broadcast(save_dat('sub'), redis_dat('avg_sub'), pipeline_pipe)))
     average_subtract_pipe = average(broadcast(save_dat('avg'), redis_dat('avg_smp'), subtract_pipe))
     raw_subtract_pipe = retrieve_obj(Buffer, subtract(save_dat('raw_sub')))
     

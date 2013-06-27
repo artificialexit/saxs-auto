@@ -27,8 +27,12 @@ class PipelineLite:
         """
         Runs pipeline with multiple analysis steps.
         """
+        print 'Running piplinelite'
         # autorg modeling
         autorg_output = self.autorg()
+        print autorg_output
+        # Write out autorg
+        self.saveAutoRgVolume(autorg_output)
         # datgnom modeling
         outfile_path = self.datgnom(autorg_output)
         # datporod modeling
@@ -37,8 +41,8 @@ class PipelineLite:
         self.saveDatporodVolume(porod_volume)
         # dammif modeling with fast mode
         # store dam volume (total excluded DAM volume)
-        dam_volume = self.dammif(outfile_path)
-        self.saveDammifVolume(dam_volume)
+        # dam_volume = self.dammif(outfile_path)
+        # self.saveDammifVolume(dam_volume)
         
     
     def autorg(self):
@@ -51,8 +55,28 @@ class PipelineLite:
         process = subprocess.Popen(command_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (output, error_output) = process.communicate()
         print ' '.join(command_list)
-        print output #eg: 32.37 1.20793 0.17155 0.000494341 13 30 0.601154 0 sum_data_4.dat
+        print error_output
+        if output == '' :
+            return "Error: " + error_output
         return output 
+    
+    def saveAutoRgVolume(self, autorg_output):
+        """
+        Writes AutoRg output to disk 
+        """
+        print '#---- save AutoRg Output------------#'    
+        print 'autorg_output =', autorg_output, '\n'
+        
+        file = self.datFilePath.split('/')[-1] 
+        if file.endswith('.dat'):
+            #eg: filename="sample" if input file is /input_path/sample.dat
+            filename = file[:-4] 
+        
+        outfile_path = self.outputPath + filename + '_autorg.out'
+        f = open(outfile_path, 'w')
+        f.write(autorg_output)
+        f.close()
+        
     
     def datgnom(self, autorg_output):
         """
@@ -60,21 +84,39 @@ class PipelineLite:
         regularized scattering curve.
         """
         print '#---- datgnom ----------------------#'    
-        valuePoints = autorg_output.split(" ")
-        rg = valuePoints[0]
-        skip = valuePoints[4]
-        try:
-            skip = int(skip)
-            skip = skip - 1
-        except ValueError:
-            print "Error happened when converting skip value into integer."
+        
         #eg: file="sample.dat" if input file is /input_path/sample.dat
         file = self.datFilePath.split('/')[-1] 
         if file.endswith('.dat'):
             #eg: filename="sample" if input file is /input_path/sample.dat
             filename = file[:-4] 
+            
+        outfile_path = self.outputPath + filename + '_datgnom.out'
         
-        outfile_path = self.outputPath + filename + '.out'
+        valuePoints = autorg_output.split(" ")
+        
+        if valuePoints[0] == "Error:":
+            
+            f = open(outfile_path, 'w')
+            f.write("Error with autorg input.")
+            f.close()
+            return outfile_path
+     
+        rg = valuePoints[0]
+        try:
+            skip = valuePoints[4]
+        except IndexError:
+            f = open(outfile_path, 'w')
+            f.write("Error with autorg input (not enough fields).")
+            f.close()
+            return outfile_path
+        
+        try:
+            skip = int(skip)
+            skip = skip - 1
+        except ValueError:
+            print "Error happened when converting skip value into integer."
+                
         command_list = ['datgnom', '-r', str(rg), '-s', str(skip), '-o', outfile_path, self.datFilePath]
         process = subprocess.Popen(command_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (output, error_output) = process.communicate()
@@ -94,15 +136,26 @@ class PipelineLite:
         porod_volume = str(output).strip(' ').split(' ')[0]
         print ' '.join(command_list)
         print output
+        print error_output
+        if output == '' :
+            return "Error: " + error_output
         return porod_volume
     
     def saveDatporodVolume(self, porod_volume):
         """
-        Stores value of Porod volume into database. 
+        Writes value of Porod volume to disk. 
         """
         print '#---- save porod volume------------#'    
         print 'porod_volume =', porod_volume, '\n'
-        "TODO: save value of porod volume into database."
+        file = self.datFilePath.split('/')[-1] 
+        if file.endswith('.dat'):
+            #eg: filename="sample" if input file is /input_path/sample.dat
+            filename = file[:-4] 
+        
+        outfile_path = self.outputPath + filename + '_porod_volume.out'
+        f = open(outfile_path, 'w')
+        f.write(porod_volume)
+        f.close()
 
     
     def dammif(self, outfile_path):
