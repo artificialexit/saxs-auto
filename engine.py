@@ -90,7 +90,6 @@ def moving_average(number,target=None):
         if target:
             goodDats = dat.rejection(dats)
             if goodDats != None:
-                print len(goodDats)
                 result = dat.average(goodDats)
                 result.filename = dats[0].filename
                 target.send(result)
@@ -152,11 +151,42 @@ def send_pipelinelite():
         dat = (yield)
         filename = dat.filename
         analysis_path = os.path.dirname(os.path.dirname(filename))+'/analysis/'
-        print "start pipelinelite"
         litePipeline = PipelineLite.PipelineLite(filename,analysis_path)
         print "run pipelinelite"
         litePipeline.runPipeline()
-        print "finish run pipelinelite"
+
+@coroutine
+def sec_autorg():
+    
+    secrunname =''
+    
+    while True:
+        dat = (yield)
+       
+        datfilename = dat.filename
+        analysis_path = os.path.dirname(os.path.dirname(datfilename))+'/analysis/'
+        litePipeline = PipelineLite.PipelineLite(datfilename,analysis_path)
+        autorg = litePipeline.autorg()
+        
+        if secrunname <> dat.rootname:
+            secrunname = dat.rootname
+           
+            filename = datfilename.split('/')[-1] 
+            if filename.endswith('.dat'):
+                filename = filename[:-4] 
+           
+            rgarray =[]
+            
+        with open(analysis_path+'/'+filename+'_rgtrace.dat','a') as outputfile :
+            rg = (autorg.split(" "))[0]
+            if rg == 'Error:':
+                rg = '0'
+            outputfile.write(rg+' \n')
+            rgarray.append(rg)
+        
+        pickled = pickle.dumps({'profile': profile})
+        r.set("pipeline:sec:Rg", pickled)
+        r.publish("pipeline:sec:pub:Rg", "NewRg")
         
 @coroutine
 def redis_dat(channel):
@@ -266,7 +296,7 @@ if __name__ == '__main__':
     samples_pipe = broadcast(average_subtract_pipe, raw_subtract_pipe)
     samples = filter_on_attr('SampleType', ['1','4'], load_dat(samples_pipe))
     
-    sec_subtract_pipe = retrieve_obj(Buffer, subtract(save_dat('avg')))
+    sec_subtract_pipe = retrieve_obj(Buffer, subtract(broadcast(save_dat('sub'),sec_autorg())))
     
     sec_buffer_pipe = filter_on_attr_value('ImageCounter',[4,20],load_dat(average(broadcast(save_dat('avg'),redis_dat('avg_buf'),store_obj(Buffer)))))
     sec_pipe = filter_on_attr_value('ImageCounter',[21,5000], load_dat(moving_average(5,sec_subtract_pipe)))

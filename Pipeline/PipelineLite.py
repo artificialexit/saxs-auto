@@ -50,12 +50,12 @@ class PipelineLite:
         Automatically computes Rg and I(0) using the Guinier approximation, 
         estimates data quality, finds the beginning of the useful data range.
         """
-        print '#---- autorg -----------------------#'
+        #print '#---- autorg -----------------------#'
         command_list = ['autorg', '-f', 'ssv', self.datFilePath]
         process = subprocess.Popen(command_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (output, error_output) = process.communicate()
-        print ' '.join(command_list)
-        print error_output
+        #print ' '.join(command_list)
+        #print error_output
         if output == '' :
             return "Error: " + error_output
         return output 
