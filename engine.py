@@ -88,11 +88,15 @@ def moving_average(number,target=None):
         if len(dats) > number:
             dats = dats[-number:]
         if target:
-            goodDats = dat.rejection(dats)
-            if goodDats != None:
-                result = dat.average(goodDats)
-                result.filename = dats[0].filename
-                target.send(result)
+            #goodDats = dat.rejection(dats)
+            #if goodDats != None:
+            #    result = dat.average(goodDats)
+            #    result.filename = dats[0].filename
+            #    target.send(result)
+
+            result = dat.average(dats)
+            result.filename = dats[0].filename
+            target.send(result)
 
 @coroutine        
 def average(target=None):
@@ -175,16 +179,46 @@ def sec_autorg():
             if filename.endswith('.dat'):
                 filename = filename[:-4] 
            
+            with open(analysis_path+'/'+filename+'_rgtrace.dat','w') as outputfile :
+                outputfile.write('index Rg I0 quality\n')
+           
             rgarray =[]
-            
+            indexArray =[]
+            I0Array=[]
+            qualityArray=[]
+            count = 0
+        
+        if count < movingAvWindow-1:
+            count = count + 1
+            continue
+        
         with open(analysis_path+'/'+filename+'_rgtrace.dat','a') as outputfile :
+            numFields = len(autorg.split(" "))
             rg = (autorg.split(" "))[0]
+            I0 = (autorg.split(" "))[2]
+            
             if rg == 'Error:':
                 rg = '0'
-            outputfile.write(rg+' \n')
-            rgarray.append(rg)
-        
-        pickled = pickle.dumps({'profile': profile})
+                I0 = '0'
+
+            if numFields >= 8:
+                quality = (autorg.split(" "))[6]
+            else:
+                quality = '0'
+
+            index = dat.fileindex
+            outputfile.write('%s %s %s %s\n' % (index,rg,I0,quality))
+            indexArray.append(int(index))
+            rgarray.append(float(rg))
+            I0Array.append(float(I0))
+            try:
+                qualityArray.append(float(quality))
+            except ValueError:
+                qualityArray.append(0.0)
+                
+            
+        rgprofile = zip(indexArray,rgarray,I0Array,qualityArray)
+        pickled = pickle.dumps({'profiles': rgprofile})
         r.set("pipeline:sec:Rg", pickled)
         r.publish("pipeline:sec:pub:Rg", "NewRg")
         
@@ -260,9 +294,11 @@ if __name__ == '__main__':
     
     config = yaml.load(stream)
     
+    movingAvWindow = 5
+    
     pipeline = Pipeline.Pipeline(config)
     
-    if offline == True :
+    if offline == False :
         redis_dat = no_op
     else:
         ##Load last buffer from redis incase this is a recovery
@@ -299,7 +335,7 @@ if __name__ == '__main__':
     sec_subtract_pipe = retrieve_obj(Buffer, subtract(broadcast(save_dat('sub'),sec_autorg())))
     
     sec_buffer_pipe = filter_on_attr_value('ImageCounter',[4,20],load_dat(average(broadcast(save_dat('avg'),redis_dat('avg_buf'),store_obj(Buffer)))))
-    sec_pipe = filter_on_attr_value('ImageCounter',[21,5000], load_dat(moving_average(5,sec_subtract_pipe)))
+    sec_pipe = filter_on_attr_value('ImageCounter',[21,5000], load_dat(moving_average(movingAvWindow,sec_subtract_pipe)))
     sec = filter_on_attr('SampleType',['6'], broadcast(sec_pipe, sec_buffer_pipe))
     
     ## broadcast to buffers and samples
