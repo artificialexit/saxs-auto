@@ -33,6 +33,7 @@ def average(dat_list):
 
 def subtract(dat_one, dat_two):    
     result = DatFile()
+    result.userData = dat_one.userData
     
     result.q = dat_one.q
     result.errors = [ math.sqrt(sum(el**2 for el in row))/ float(len(row)) for row in zip(dat_one.errors, dat_two.errors) ]
@@ -88,6 +89,8 @@ class DatFile(object):
 
         self.valid = False
         
+        self.userData = {}
+        
         if datfile:
             self.load(datfile)
     
@@ -141,6 +144,11 @@ class DatFile(object):
         else:
             self.header = "%s %s;" % (self.header,header)
     
+    def setuserdata(self, data):
+        try:
+            self.userData.update(data)
+        except Exception:
+            pass
         
     @property
     def rootname(self):
@@ -159,7 +167,6 @@ class DatFile(object):
     
     @property
     def fileindex(self):
-        print self.basename
         return self.basename_rmext.rsplit('_',1)[1]
     
     @property

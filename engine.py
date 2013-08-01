@@ -96,6 +96,7 @@ def moving_average(number,target=None):
 
             result = dat.average(dats)
             result.filename = dats[0].filename
+            result.setuserdata({'rawhighq' : result.highq})
             target.send(result)
 
 @coroutine        
@@ -180,12 +181,13 @@ def sec_autorg():
                 filename = filename[:-4] 
            
             with open(analysis_path+'/'+filename+'_rgtrace.dat','w') as outputfile :
-                outputfile.write('index Rg I0 quality\n')
+                outputfile.write('index Rg I0 quality IntAtHighQ\n')
            
             rgarray =[]
             indexArray =[]
             I0Array=[]
             qualityArray=[]
+            highqArray=[]
             count = 0
         
         if count < movingAvWindow-1:
@@ -207,7 +209,7 @@ def sec_autorg():
                 quality = '0'
 
             index = dat.fileindex
-            outputfile.write('%s %s %s %s\n' % (index,rg,I0,quality))
+            outputfile.write('%s %s %s %s %s\n' % (index,rg,I0,quality,dat.userData['rawhighq']))
             indexArray.append(int(index))
             rgarray.append(float(rg))
             I0Array.append(float(I0))
@@ -215,12 +217,13 @@ def sec_autorg():
                 qualityArray.append(float(quality))
             except ValueError:
                 qualityArray.append(0.0)
-                
+            highqArray.append(dat.userData['rawhighq'])
             
-        rgprofile = zip(indexArray,rgarray,I0Array,qualityArray)
+        rgprofile = zip(indexArray,rgarray,I0Array,qualityArray,highqArray)
         pickled = pickle.dumps({'profiles': rgprofile})
-        r.set("pipeline:sec:Rg", pickled)
-        r.publish("pipeline:sec:pub:Rg", "NewRg")
+        r.sadd("pipeline:sec:filenames",'%s/%s' % (dat.dirname,dat.rootname))
+        r.set("pipeline:sec:%s/%s:Rg" %(dat.dirname,dat.rootname), pickled)
+        r.publish("pipeline:sec:pub:Filename", '%s/%s' % (dat.dirname,dat.rootname))
         
 @coroutine
 def redis_dat(channel):
