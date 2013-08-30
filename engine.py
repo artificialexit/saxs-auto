@@ -53,7 +53,8 @@ def load_dat(target):
         
         if exp_directory == 'beamline' :
             ## For version running on beamline
-            patharray = ['/data/pilatus1M'] + directory.split('/')[4:-1] + ['raw_dat',filename]
+            patharray = ['/data/pilatus1M'] + directory.split('/')[2:-1] + ['raw_dat',filename]
+            print patharray
         else:
             ## Offline mode
             patharray = [exp_directory,'raw_dat',filename]
