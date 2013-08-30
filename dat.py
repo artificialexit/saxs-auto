@@ -24,14 +24,16 @@ def average(dat_list):
     result.errors = [ math.sqrt(sum(el**2 for el in row))/ float(len(row)) for row in zip(*(dat.errors for dat in dat_list)) ]
     result.intensities = [ sum(row) / float(len(row)) for row in zip(*(dat.intensities for dat in dat_list)) ]
     
-    # when we save we just want the rootname (as this is averaged)
-    result.filename = os.path.join(dat_list[-1].dirname,dat_list[-1].rootname)
+    # when we save we just want the rootname and index of first and last to create unique names. (as this is averaged)
+    result.filename = os.path.join(dat_list[-1].dirname, dat_list[0].basename)
+    result.setheader('Used file indices: %s' % (' '.join(d.fileindex for d in dat_list),))
     # another option could be (ie the name of the first frane used)
     #result.filename = data_list[0].basename
     return result
 
 def subtract(dat_one, dat_two):    
     result = DatFile()
+    result.userData = dat_one.userData
     
     result.q = dat_one.q
     result.errors = [ math.sqrt(sum(el**2 for el in row))/ float(len(row)) for row in zip(dat_one.errors, dat_two.errors) ]
@@ -79,11 +81,15 @@ class DatFile(object):
     def __init__(self, datfile=None):
         self.filename = None
         
+        self.header = ''
+        
         self.q = []
         self.intensities = []
         self.errors = []
 
         self.valid = False
+        
+        self.userData = {}
         
         if datfile:
             self.load(datfile)
@@ -116,10 +122,13 @@ class DatFile(object):
             
         self.filename = filename
     
-    def save(self, filename):
+    def save(self, filename, header = ''):
         
+        if header != '':
+            self.setheader(header)
+
         f = cStringIO.StringIO()
-        f.write("%s\n" % os.path.basename(filename))
+        f.write("%s; %s\n" % (os.path.basename(filename),self.header))
         f.write("%14s %16s %16s\n" % ('q', 'I', 'Err'))
         for item in zip(self.q, self.intensities, self.errors):
             f.write("%18.10f %16.10f %16.10f\n" % item)
@@ -128,6 +137,18 @@ class DatFile(object):
             fp.write(f.getvalue())
             
         self.filename = filename
+    
+    def setheader(self, header, replace=False):
+        if replace==True:
+            self.header = header
+        else:
+            self.header = "%s %s;" % (self.header,header)
+    
+    def setuserdata(self, data):
+        try:
+            self.userData.update(data)
+        except Exception:
+            pass
         
     @property
     def rootname(self):
@@ -137,8 +158,16 @@ class DatFile(object):
             return ""
     
     @property
+    def basename_rmext(self):
+        return os.path.splitext(os.path.basename(self.filename))[0]
+    
+    @property
     def basename(self):
         return os.path.basename(self.filename)
+    
+    @property
+    def fileindex(self):
+        return self.basename_rmext.rsplit('_',1)[1]
     
     @property
     def dirname(self):
