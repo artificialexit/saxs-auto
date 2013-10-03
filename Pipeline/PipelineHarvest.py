@@ -96,15 +96,26 @@ class PipelineHarvest:
                 numResults = self.redis.zcard('pipeline:results:set')
                 self.redis.zadd('pipeline:results:set', numResults+1, 'pipeline:results:' + datfile)
             
-            # TODO write to ascii file - uncomment this code and test
-            #numResults = self.redis.zcard('pipeline:results:set')
-            #resultKeys = self.redis.zrange('pipeline:results:set',0,numResults-1)
-            #file = open('%s/analysis.dat' % (path,),'w')
-            #for key in resultKeys:
-            #    results = ''.join('%s:%s ' % (key,value) for key, val in (self.redis.hgetall(key)).items())
-            #    filename = key.split(':')[-1]
-            #    file.write('%s,%s' % (filename,results)
-            #file.close()
+            # Write to ascii file
+            try:
+                numResults = self.redis.zcard('pipeline:results:set')
+                resultKeys = self.redis.zrange('pipeline:results:set',0,numResults-1)
+                with open('%s/analysis.dat' % (os.path.dirname(file_to_harvest),),'w') as file:
+                    hashkeys = []
+                    for key in resultKeys:
+                        hashkeys.extend(self.redis.hkeys(key))
+
+                    hashkeys = [hashkey for hashkey in set(hashkeys) if hashkey.find('PDB') == -1]
+                    sortorder = ['AutoRG_RG','AutoRG_RGE','AutoRG_I0','AutoRG_I0E','AutoRG_Start','AutoRG_End','AutoRG_Quality','AutoRG_ValidFlag']
+                    sortedhashkeys = sorted(hashkeys,key=lambda x: sortorder.index(x) if x in sortorder else x )
+                    file.write('filename, %s\n' % (', '.join(sortedhashkeys).replace('Volume','Vol').replace('ValidFlag','Invalid'),))
+                   
+                    for key in resultKeys: 
+                        results = dict((self.redis.hgetall(key)).items())
+                        filename = key.split(':')[-1]
+                        file.write('%s,%s\n' % (filename,', '.join([results[hashkey] if hashkey in results else '' for hashkey in sortedhashkeys])))
+            except:
+                print sys.exc_info()[0]
 
 if __name__ == "__main__":
     configuration = "../settings.conf"

@@ -302,7 +302,7 @@ if __name__ == '__main__':
     
     pipeline = Pipeline.Pipeline(config)
     
-    if offline == False :
+    if offline == True :
         redis_dat = no_op
     else:
         ##Load last buffer from redis incase this is a recovery

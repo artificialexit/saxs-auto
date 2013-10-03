@@ -175,7 +175,7 @@ class DatFile(object):
     
     @property
     def highq(self):
-        return sum(self.intensities[-20:-1])
+        return sum(self.intensities[-30:-10])
     
     @property
     def lowq(self):
