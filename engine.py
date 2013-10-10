@@ -209,7 +209,7 @@ def sec_autorg():
             else:
                 quality = '0'
 
-            index = dat.fileindex
+            index = str(int(dat.fileindex) + movingAvWindow/2)
             outputfile.write('%s %s %s %s %s\n' % (index,rg,I0,quality,dat.userData['rawhighq']))
             indexArray.append(int(index))
             rgarray.append(float(rg))
