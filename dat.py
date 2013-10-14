@@ -27,6 +27,8 @@ def average(dat_list):
     # when we save we just want the rootname and index of first and last to create unique names. (as this is averaged)
     result.filename = os.path.join(dat_list[-1].dirname, dat_list[0].basename)
     result.setheader('Used file indices: %s' % (' '.join(d.fileindex for d in dat_list),))
+    for dat in dat_list:
+        result.setuserdata(dat.userData)
     # another option could be (ie the name of the first frane used)
     #result.filename = data_list[0].basename
     return result

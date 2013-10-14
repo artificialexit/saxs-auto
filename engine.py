@@ -31,10 +31,14 @@ def broadcast(*targets):
 @coroutine
 def untangle_xml(target):
     while True:
-        item = (yield)        
+        item = (yield)
+        data = item[1]
+        item = item[0]
         ## do conversion (only ever has 1 child)
         item = untangle.parse(item).children[0]
         item._attributes['ImageLocation'] = item.cdata
+        for attr in data:
+            item._attributes[attr] = data[attr]
         target.send(item)
             
 @coroutine
@@ -68,7 +72,12 @@ def load_dat(target):
             patharray = [exp_directory,'raw_dat',filename]
 
         try:
-            target.send(DatFile(os.path.join(*patharray)))
+            dat = DatFile(os.path.join(*patharray))
+            try:
+                dat.setuserdata({'flush' : item['flush']})
+            except Exception:
+                pass
+            target.send(dat)
         except EnvironmentError:
             pass
             
@@ -221,10 +230,13 @@ def sec_autorg():
             highqArray.append(dat.userData['rawhighq'])
             
         rgprofile = zip(indexArray,rgarray,I0Array,qualityArray,highqArray)
-        pickled = pickle.dumps({'profiles': rgprofile})
-        r.sadd("pipeline:sec:filenames",'%s/%s' % (dat.dirname,dat.rootname))
-        r.set("pipeline:sec:%s/%s:Rg" %(dat.dirname,dat.rootname), pickled)
-        r.publish("pipeline:sec:pub:Filename", '%s/%s' % (dat.dirname,dat.rootname))
+        try:
+            pickled = pickle.dumps({'profiles': rgprofile})
+            r.sadd("pipeline:sec:filenames",'%s/%s' % (dat.dirname,dat.rootname))
+            r.set("pipeline:sec:%s/%s:Rg" %(dat.dirname,dat.rootname), pickled)
+            r.publish("pipeline:sec:pub:Filename", '%s/%s' % (dat.dirname,dat.rootname))
+        except NameError: #No redis defined - running with offline switch
+            pass
         
 @coroutine
 def redis_dat(channel):
@@ -245,10 +257,14 @@ def filter_new_sample(target):
         if i == 0:
             sub = dat
         print 'dat: %s, sub: %s' % (dat.basename,sub.basename)
-        
+
         if dat.basename <> sub.basename:
             target.send(sub)
             sub = dat
+
+        if 'flush' in dat.userData:
+            if dat.userData['flush'] == True:
+                target.send(dat)
         
         i += 1
         
@@ -304,6 +320,7 @@ if __name__ == '__main__':
     
     if offline == True :
         redis_dat = no_op
+
     else:
         ##Load last buffer from redis incase this is a recovery
         r = redis.StrictRedis(host='localhost', port=6379, db=0)
@@ -354,7 +371,8 @@ if __name__ == '__main__':
     else:
         ## File version
         # if from xml we untangle
-        pipe = untangle_xml(pipe)
+        untangle_pipe = untangle_xml(pipe)
+        num_lines = sum(1 for line in open(log_path))
         with open(log_path) as logfile:
-            for line in logfile:
-                pipe.send(line.strip())
+            for i,line in enumerate(logfile):
+                untangle_pipe.send([line.strip(),{'flush': i+1==num_lines}])

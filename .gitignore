@@ -33,3 +33,6 @@ pip-log.txt
 
 #directories
 env/
+
+#misc files
+nohup.out
