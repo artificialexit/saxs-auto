@@ -83,11 +83,14 @@ class Pipeline:
         hdlr.setFormatter(formatter)
         self.log.addHandler(hdlr)
 
-    def runPipeline(self, username, experiment, datfile):
+    def runPipeline(self, username, experiment, datfile, INPUTDIR=''):
         # Set target user, experiment and datfile
         self.PROD_USER_EPN          = username
         self.PROD_USER_EXP          = experiment
         self.PROD_USER_DAT_FILE     = datfile
+        if INPUTDIR != '':
+            self.PIPELINE_INPUT_DIR = INPUTDIR
+            
         #---------- Auto processor settings -----------------------------------#
         self.PROD_SSH_ACCESS            = self.PROD_USER + "@" + self.PROD_HOST
         if self.PROD_USER_EXP: # user folder and experiment folder
