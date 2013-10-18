@@ -4,15 +4,24 @@ from flask import Flask
 import Pipeline
 import yaml
 import argparse
+from plugins import vbl, beamline, beamline_or_vbl
 
 pipeline_app=Flask(__name__)
 
-@pipeline_app.route("/<epn>/<exp>/<indir>/<dat>")
+@pipeline_app.route("/runpipeline/")
+#@beamline_or_vbl
+def landing():
+    print 'here'
+    return 'Landing page for runpipeline'
+
+@pipeline_app.route("/runpipeline/<epn>/<exp>/<indir>/<dat>")
+#@beamline_or_vbl
 def loadpipelinewithdir(epn,exp,indir,dat):
     pipeline.runPipeline(epn,exp,dat,INPUTDIR=indir)
     return 'File %s from experiment %s and user %s sent to pipeline' % (epn,exp,dat)
 
-@pipeline_app.route("/<epn>/<exp>/<dat>")
+@pipeline_app.route("/runpipeline/<epn>/<exp>/<dat>")
+#@beamline_or_vbl
 def loadpipeline(epn,exp,dat):
     pipeline.runPipeline(epn,exp,dat)
     return 'File %s from experiment %s and user %s sent to pipeline' % (epn,exp,dat)
@@ -36,4 +45,4 @@ if __name__ =='__main__':
     pipeline = Pipeline.Pipeline(config)
 
     print 'Listening on port 8082'
-    pipeline_app.run(port=8082,debug=True)
+    pipeline_app.run(host='0.0.0.0',port=8082)
