@@ -89,6 +89,7 @@ class Pipeline:
         self.PROD_USER_EXP          = experiment
         self.PROD_USER_DAT_FILE     = datfile
         if INPUTDIR != '':
+            self.PROD_PIPELINE_INPUT_DIR = INPUTDIR
             self.PIPELINE_INPUT_DIR = INPUTDIR
             
         #---------- Auto processor settings -----------------------------------#
@@ -133,6 +134,7 @@ class Pipeline:
                                              self.MASSIVE_HOST, 
                                              self.PIPELINE_USER_INPUT_DIR, 
                                              self.PROD_USER_DAT_FILE)
+        print command
         os.system(command)
     
     def triggerPipelineWrapper(self):

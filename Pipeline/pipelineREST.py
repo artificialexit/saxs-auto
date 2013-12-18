@@ -1,5 +1,6 @@
 # Flask based REST access to Pipeline
 import os
+import sys
 from flask import Flask
 import Pipeline
 import yaml
@@ -17,6 +18,7 @@ def landing():
 @pipeline_app.route("/runpipeline/<epn>/<exp>/<indir>/<dat>")
 #@beamline_or_vbl
 def loadpipelinewithdir(epn,exp,indir,dat):
+    print epn,exp,indir,dat
     pipeline.runPipeline(epn,exp,dat,INPUTDIR=indir)
     return 'File %s from experiment %s and user %s sent to pipeline' % (epn,exp,dat)
 

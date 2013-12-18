@@ -318,12 +318,13 @@ if __name__ == '__main__':
     
     pipeline = Pipeline.Pipeline(config)
     
+    r = redis.StrictRedis(host='localhost', port=6379, db=0)
+    
     if offline == True :
         redis_dat = no_op
 
     else:
         ##Load last buffer from redis incase this is a recovery
-        r = redis.StrictRedis(host='localhost', port=6379, db=0)
         redisBuffer = r.get('logline:avg_buf')
         try :            
             bufferQ,bufferProfile,bufferErrors = zip(*pickle.loads(redisBuffer))
