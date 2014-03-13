@@ -1,0 +1,14 @@
+Flask==0.10.1
+Flask-VBL==0.1.1
+Flask-beamline==0.1.1
+Jinja2==2.7.1
+Logbook==0.4
+MarkupSafe==0.18
+PyYAML==3.10
+Werkzeug==0.9.4
+itsdangerous==0.23
+netaddr==0.7.10
+pyepics==3.2.1
+redis==2.7.2
+requests==2.0.0
+untangle==1.0.0
