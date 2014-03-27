@@ -44,7 +44,7 @@ if __name__ =='__main__':
     
     config = yaml.load(stream)
     
-    pipeline = Pipeline.Pipeline(config)
+    pipeline = Pipeline.PipelineLite(config)
 
     print 'Listening on port 8082'
     pipeline_app.run(host='0.0.0.0',port=8082)
