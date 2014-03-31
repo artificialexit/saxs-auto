@@ -98,6 +98,7 @@ class PipelineHarvest:
             
             # Write to ascii file
             try:
+                print 'here I am'
                 numResults = self.redis.zcard('pipeline:results:set')
                 resultKeys = self.redis.zrange('pipeline:results:set',0,numResults-1)
                 with open('%s/analysis.dat' % (os.path.dirname(file_to_harvest),),'w') as file:
@@ -149,6 +150,8 @@ if __name__ == "__main__":
         sys.exit(2)
         
     config = yaml.load(stream)
+     
+    print file_to_harvest    
     
     pipeline_harvest = PipelineHarvest(config)
     pipeline_harvest.runHarvest(value_type, file_to_harvest)    

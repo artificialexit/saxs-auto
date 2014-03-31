@@ -5,6 +5,7 @@ import subprocess
 import sys
 import time
 import getopt
+import PipelineHarvest
 
 class PipelineLite:
     """
@@ -23,7 +24,7 @@ class PipelineLite:
             outputPath += '/'
         self.outputPath = outputPath
 
-    def runPipeline(self):
+    def runPipeline(self, harvest=True):
         """
         Runs pipeline with multiple analysis steps.
         """
@@ -43,7 +44,12 @@ class PipelineLite:
         # store dam volume (total excluded DAM volume)
         # dam_volume = self.dammif(outfile_path)
         # self.saveDammifVolume(dam_volume)
-        
+        if harvest:
+            rawfilename = os.path.splitext(os.path.basename(self.datFilePath))[0]
+            print rawfilename
+            harvest = PipelineHarvest.PipelineHarvest({"ExperimentFolderOn" : True})
+            harvest.runHarvest('porod_volume',self.outputPath + rawfilename + '_porod_volume.dat')
+            harvest.runHarvest('autorg',self.outputPath + rawfilename + '_autorg.out')
     
     def autorg(self):
         """
