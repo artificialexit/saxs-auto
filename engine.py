@@ -14,9 +14,10 @@ import dat
 from Pipeline import Pipeline
 from Pipeline import PipelineLite
 
+
 def coroutine(func):
-    def start(*args,**kwargs):
-        cr = func(*args,**kwargs)
+    def start(*args, **kwargs):
+        cr = func(*args, **kwargs)
         cr.next()
         return cr
     return start
@@ -52,9 +53,9 @@ def filter_on_attr(attr, value, target):
 def filter_on_attr_value(attr, value, target):
     while True:
         item = (yield)
-        if float(item[attr]) >= value[0] and float(item[attr]) <= value[1]:
+        if value[0] <= float(item[attr]) <= value[1]:
             target.send(item)
-            
+
 @coroutine
 def load_dat(target):
     while True:
@@ -65,16 +66,16 @@ def load_dat(target):
         
         if exp_directory == 'beamline' :
             ## For version running on beamline
-            patharray = ['/data/pilatus1M'] + directory.split('/')[2:-1] + ['raw_dat',filename]
+            patharray = ['/data/pilatus1M'] + directory.split('/')[2:-1] + ['raw_dat', filename]
             print patharray
         else:
             ## Offline mode
-            patharray = [exp_directory,'raw_dat',filename]
+            patharray = [exp_directory, 'raw_dat', filename]
 
         try:
             dat = DatFile(os.path.join(*patharray))
             try:
-                dat.setuserdata({'flush' : item['flush']})
+                dat.setuserdata({'flush': item['flush']})
             except Exception:
                 pass
             target.send(dat)
@@ -83,7 +84,7 @@ def load_dat(target):
             
 
 @coroutine        
-def moving_average(number,target=None):
+def moving_average(number, target=None):
     dats = []
     
     while True:
@@ -106,25 +107,30 @@ def moving_average(number,target=None):
 
             result = dat.average(dats)
             result.filename = dats[0].filename
-            result.setuserdata({'rawhighq' : result.highq})
+            result.setuserdata({'rawhighq': result.highq})
             target.send(result)
 
 @coroutine        
 def average(target=None):
-    dats = []
     
+    global lastname
+    
+    dats = []
+        
     while True:
         dats.append((yield))
         try:
             # root name change detection
-            if dats[-2].rootname != dats[-1].rootname:
+            if lastname != dats[-1].rootname:
                 dats = dats[-1:]
         except IndexError:
             pass
         
+        lastname = dats[-1].rootname
+        
         if target:
             goodDats = dat.rejection(dats)
-            if goodDats != None:
+            if goodDats is not None:
                 target.send(dat.average(goodDats))
             
         
@@ -145,7 +151,7 @@ def save_dat(folder, prefix=None):
             filename = os.path.join(os.path.split(directory)[0], folder, dat.basename)
         else:
             ## Offline mode
-            filename = os.path.join(exp_directory,folder,dat.basename)
+            filename = os.path.join(exp_directory, folder, dat.basename)
         
         print "saving profile to %s" % (filename,)
         dat.save(filename)
@@ -158,7 +164,7 @@ def send_pipeline():
         epn, experiment = filename.split('/')[4:6]
         print "epn %s, experiment %s, filename %s" % (epn, experiment, dat.basename)
         print "send to pipeline"
-        pipeline.runPipeline(epn,experiment,dat.basename)
+        pipeline.runPipeline(epn, experiment, dat.basename)
 
 @coroutine
 def send_pipelinelite():
@@ -166,10 +172,16 @@ def send_pipelinelite():
         dat = (yield)
         filename = dat.filename
         analysis_path = os.path.dirname(os.path.dirname(filename))+'/analysis/'
-        litePipeline = PipelineLite.PipelineLite(filename,analysis_path)
+        litePipeline = PipelineLite.PipelineLite(filename, analysis_path)
         print "run pipelinelite"
         litePipeline.runPipeline()
 
+@coroutine
+def no_send():
+    while True:
+        dat = (yield)
+        print "Finished %s" % (dat,)
+        
 @coroutine
 def sec_autorg():
     
@@ -180,17 +192,17 @@ def sec_autorg():
        
         datfilename = dat.filename
         analysis_path = os.path.dirname(os.path.dirname(datfilename))+'/analysis/'
-        litePipeline = PipelineLite.PipelineLite(datfilename,analysis_path)
+        litePipeline = PipelineLite.PipelineLite(datfilename, analysis_path)
         autorg = litePipeline.autorg()
         
-        if secrunname <> dat.rootname:
+        if secrunname != dat.rootname:
             secrunname = dat.rootname
            
             filename = datfilename.split('/')[-1] 
             if filename.endswith('.dat'):
                 filename = filename[:-4] 
            
-            with open(analysis_path+'/'+filename+'_rgtrace.dat','w') as outputfile :
+            with open(analysis_path+'/'+filename+'_rgtrace.dat','w') as outputfile:
                 outputfile.write('index Rg I0 quality IntAtHighQ\n')
            
             rgarray =[]
@@ -204,7 +216,7 @@ def sec_autorg():
             count = count + 1
             continue
         
-        with open(analysis_path+'/'+filename+'_rgtrace.dat','a') as outputfile :
+        with open(analysis_path+'/'+filename+'_rgtrace.dat','a') as outputfile:
             numFields = len(autorg.split(" "))
             rg = (autorg.split(" "))[0]
             I0 = (autorg.split(" "))[2]
@@ -219,7 +231,7 @@ def sec_autorg():
                 quality = '0'
 
             index = str(int(dat.fileindex) + movingAvWindow/2)
-            outputfile.write('%s %s %s %s %s\n' % (index,rg,I0,quality,dat.userData['rawhighq']))
+            outputfile.write('%s %s %s %s %s\n' % (index, rg, I0, quality, dat.userData['rawhighq']))
             indexArray.append(int(index))
             rgarray.append(float(rg))
             I0Array.append(float(I0))
@@ -229,13 +241,13 @@ def sec_autorg():
                 qualityArray.append(0.0)
             highqArray.append(dat.userData['rawhighq'])
             
-        rgprofile = zip(indexArray,rgarray,I0Array,qualityArray,highqArray)
+        rgprofile = zip(indexArray, rgarray, I0Array, qualityArray, highqArray)
         try:
             pickled = pickle.dumps({'profiles': rgprofile})
-            r.sadd("pipeline:sec:filenames",'%s/%s' % (dat.dirname,dat.rootname))
-            r.set("pipeline:sec:%s/%s:Rg" %(dat.dirname,dat.rootname), pickled)
-            r.publish("pipeline:sec:pub:Filename", '%s/%s' % (dat.dirname,dat.rootname))
-        except NameError: #No redis defined - running with offline switch
+            r.sadd("pipeline:sec:filenames", '%s/%s' % (dat.dirname, dat.rootname))
+            r.set("pipeline:sec:%s/%s:Rg" % (dat.dirname, dat.rootname), pickled)
+            r.publish("pipeline:sec:pub:Filename", '%s/%s' % (dat.dirname, dat.rootname))
+        except NameError:  # No redis defined - running with offline switch
             pass
         
 @coroutine
@@ -256,14 +268,14 @@ def filter_new_sample(target):
         dat = (yield)
         if i == 0:
             sub = dat
-        print 'dat: %s, sub: %s' % (dat.basename,sub.basename)
+        print 'dat: %s, sub: %s' % (dat.basename, sub.basename)
 
-        if dat.basename <> sub.basename:
+        if dat.basename != sub.basename:
             target.send(sub)
             sub = dat
 
         if 'flush' in dat.userData:
-            if dat.userData['flush'] == True:
+            if dat.userData['flush'] is True:
                 target.send(dat)
         
         i += 1
@@ -296,38 +308,48 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('exp_directory', nargs='?', default=os.getcwd(), type=str, help="location of experiment to run auto-processor on")
     parser.add_argument('log_path', nargs='?', default='images/livelogfile.log', type=str, help="logfile path and name. Fully qualified or relative to experiment directory")
-    parser.add_argument("-o","--offline", action="store_true", help="set this switch when not running on active experiment on beamline.")
-    parser.add_argument("-c","--config", default='/beamline/apps/saxs-auto/settings.conf', action="store", help="use this to set config file location for pipeline")
-    parser.add_argument("-l","--lite", action="store_true", help="set this switch to use the local lite pipeline")
+    parser.add_argument("-o", "--offline", action="store_true", help="set this switch when not running on active experiment on beamline.")
+    parser.add_argument("-c", "--config", default='/beamline/apps/saxs-auto/settings.conf', action="store", help="use this to set config file location for pipeline")
+    parser.add_argument("-l", "--lite", action="store_true", help="set this switch to use the local lite pipeline")
+    parser.add_argument("-n", "--none", action="store_true", help="set this switch to not use the pipeline")
             
     args = parser.parse_args()
     offline = args.offline
     exp_directory = args.exp_directory
     log_path = args.log_path
+
+    if args.log_path[0] != '/':
+        log_path = os.path.normpath(args.exp_directory) + '/' + log_path
+
     print args.config
     
     try:
-        stream = file(args.config, 'r') 
+        stream = file(args.config, 'r')
     except IOError:
-        print "Unable to find configuration file settings.conf, exiting."
-        sys.exit(2)
+        print "Unable to find configuration file %s. Trying ./settings.conf." % (args.config)
+        try:
+            stream = file('settings.conf')
+        except IOError:
+            print "Unable to find configuration file settings.conf. Exiting..."
+            sys.exit(2)
     
     config = yaml.load(stream)
     
     movingAvWindow = 5
-    
+    lastname = ''
+
     pipeline = Pipeline.Pipeline(config)
     
     r = redis.StrictRedis(host='localhost', port=6379, db=0)
     
-    if offline == True :
+    if offline is True:
         redis_dat = no_op
 
     else:
-        ##Load last buffer from redis incase this is a recovery
+        ##Load last buffer from redis in case this is a recovery
         redisBuffer = r.get('logline:avg_buf')
         try :            
-            bufferQ,bufferProfile,bufferErrors = zip(*pickle.loads(redisBuffer))
+            bufferQ, bufferProfile, bufferErrors = zip(*pickle.loads(redisBuffer))
             bufferDat = DatFile()
             bufferDat.q = bufferQ
             bufferDat.intensities = bufferProfile
@@ -338,32 +360,35 @@ if __name__ == '__main__':
             pass
     
     ## buffer pipeline
-    buffers = filter_on_attr('SampleType', ['0','3'], load_dat(average(broadcast(save_dat('avg'), redis_dat('avg_buf'), store_obj(Buffer)))))
+    buffers = filter_on_attr('SampleType', ['0', '3'], load_dat(average(broadcast(save_dat('avg'), redis_dat('avg_buf'), store_obj(Buffer)))))
+    repbuffers = filter_on_attr('SampleType', ['2', '5'], load_dat(average(broadcast(save_dat('avg'), redis_dat('avg_rep_buf')))))
         
     ## samples pipeline
-    
-    if args.lite == False:
-        pipeline_pipe = filter_new_sample(send_pipeline())
+    if args.none is False:
+        if args.lite is False:
+            pipeline_pipe = filter_new_sample(send_pipeline())
+        else:
+            pipeline_pipe = filter_new_sample(send_pipelinelite())
     else:
-        pipeline_pipe = filter_new_sample(send_pipelinelite())
-    
+        pipeline_pipe = no_send()
+
     subtract_pipe = retrieve_obj(Buffer, subtract(broadcast(save_dat('sub'), redis_dat('avg_sub'), pipeline_pipe)))
     average_subtract_pipe = average(broadcast(save_dat('avg'), redis_dat('avg_smp'), subtract_pipe))
     raw_subtract_pipe = retrieve_obj(Buffer, subtract(save_dat('raw_sub')))
     
     samples_pipe = broadcast(average_subtract_pipe, raw_subtract_pipe)
-    samples = filter_on_attr('SampleType', ['1','4'], load_dat(samples_pipe))
+    samples = filter_on_attr('SampleType', ['1', '4'], load_dat(samples_pipe))
     
     sec_subtract_pipe = retrieve_obj(Buffer, subtract(broadcast(save_dat('sub'),sec_autorg())))
     
-    sec_buffer_pipe = filter_on_attr_value('ImageCounter',[4,20],load_dat(average(broadcast(save_dat('avg'),redis_dat('avg_buf'),store_obj(Buffer)))))
-    sec_pipe = filter_on_attr_value('ImageCounter',[21,5000], load_dat(moving_average(movingAvWindow,sec_subtract_pipe)))
-    sec = filter_on_attr('SampleType',['6'], broadcast(sec_pipe, sec_buffer_pipe))
+    sec_buffer_pipe = filter_on_attr_value('ImageCounter', [4, 20], load_dat(average(broadcast(save_dat('avg'), redis_dat('avg_buf'), store_obj(Buffer)))))
+    sec_pipe = filter_on_attr_value('ImageCounter', [21, 5000], load_dat(moving_average(movingAvWindow, sec_subtract_pipe)))
+    sec = filter_on_attr('SampleType', ['6'], broadcast(sec_pipe, sec_buffer_pipe))
     
     ## broadcast to buffers and samples
     pipe = broadcast(buffers, samples, sec)
     
-    if offline == False:
+    if offline is False:
         ## Redis Beamline Version
         exp_directory = 'beamline'
         while True:
@@ -376,4 +401,4 @@ if __name__ == '__main__':
         num_lines = sum(1 for line in open(log_path))
         with open(log_path) as logfile:
             for i,line in enumerate(logfile):
-                untangle_pipe.send([line.strip(),{'flush': i+1==num_lines}])
+                untangle_pipe.send([line.strip(), {'flush': i+1 == num_lines}])
