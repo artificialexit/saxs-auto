@@ -10,7 +10,7 @@ import logbook
 logger = logbook.Logger(__name__)
 
           
-def average(dat_list):
+def average(dat_list, weight_list = []):
     
     result = DatFile()
 
@@ -20,9 +20,17 @@ def average(dat_list):
     if len(dat_list) == 0:
         return result
 
+    if len(weight_list) == 0:
+        weight_list = [1.0]*len(dat_list)
+
+    weight_list = [len(weight_list)*weight/float(sum(weight_list)) for weight in weight_list]
+
     result.q = dat_list[0].q
-    result.errors = [ math.sqrt(sum(el**2 for el in row))/ float(len(row)) for row in zip(*(dat.errors for dat in dat_list)) ]
-    result.intensities = [ sum(row) / float(len(row)) for row in zip(*(dat.intensities for dat in dat_list)) ]
+    result.errors = [ math.sqrt(sum(el**2 for el in row))/ float(len(row)) for row in zip(*([[e*w for e in dat.errors]
+                                                                           for dat, w in zip(dat_list, weight_list)]))]
+
+    result.intensities = [ sum(row) / float(len(row)) for row in zip(*([[i*w for i in dat.intensities]
+                                                      for dat, w in zip(dat_list, weight_list)]))]
     
     # when we save we just want the rootname and index of first and last to create unique names. (as this is averaged)
     result.filename = os.path.join(dat_list[-1].dirname, dat_list[0].basename)
@@ -98,15 +106,6 @@ class DatFile(object):
     
     def load(self, filename):
         
-        count = 0
-        filesize = 0
-        while count < 30:      
-            filesizetemp = os.path.getsize(filename)
-            if filesizetemp == filesize:
-                break
-            filesize=filesizetemp
-            time.sleep(0.1)
-
         def yield_numbers(lines):
             for line in lines:
                 try:
@@ -158,7 +157,10 @@ class DatFile(object):
             return "".join((self.basename.rsplit('_', 1)[0], '.dat'))
         except:
             return ""
-    
+    @property
+    def rootname_rmext(self):
+        return os.path.splitext(self.rootname)[0]
+
     @property
     def basename_rmext(self):
         return os.path.splitext(os.path.basename(self.filename))[0]

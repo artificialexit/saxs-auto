@@ -73,6 +73,15 @@ def load_dat(target):
             patharray = [exp_directory, 'raw_dat', filename]
 
         try:
+
+            filesize = 0
+            for count in range(30):
+                filesizetemp = os.path.getsize(filename)
+                if filesizetemp == filesize:
+                    break
+                filesize=filesizetemp
+                time.sleep(0.1)
+
             dat = DatFile(os.path.join(*patharray))
             try:
                 dat.setuserdata({'flush': item['flush']})

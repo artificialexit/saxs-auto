@@ -9,10 +9,14 @@ class OffsetSubtract():
     def __init__(self):
         pass
     
-    def subtract(self, readpath, sample, blank, writepath='../manual', analysispath='../analysis', analyse=True):
+    def subtract(self, readpath, sample, blank, fraction=0, writepath= '../manual', analysispath='../analysis', analyse=True):
+
+        if fraction > 0:
+            fraction = round(fraction, 1)
+
         try:
-            sampleDat = DatFile(os.path.join(readpath,sample))
-            blankDat = DatFile(os.path.join(readpath,blank))
+            sampleDat = DatFile(os.path.join(readpath, sample))
+            blankDat = DatFile(os.path.join(readpath, blank))
         except IOError:
             print "File Doesn't Exist"
             return -1
@@ -44,22 +48,29 @@ class OffsetSubtract():
         while True:
             
             try:
-                sampleTemp = DatFile(datfile=os.path.join(readpath,''.join([sampleRoot,'_',str(sampleNum).zfill(sampleNumLen),'.dat'])))
-                blankTemp = DatFile(datfile=os.path.join(readpath,''.join([blankRoot,'_',str(blankNum).zfill(blankNumLen),'.dat'])))
+                sampleTemp = DatFile(datfile=os.path.join(readpath, ''.join([sampleRoot, '_', str(sampleNum).zfill(sampleNumLen), '.dat'])))
+                blankTemp = DatFile(datfile=os.path.join(readpath, ''.join([blankRoot, '_', str(blankNum).zfill(blankNumLen), '.dat'])))
+                fraction_string = ''
+                if fraction > 0:
+                    blank2 = '{}_{:04d}.dat'.format(blankTemp.rootname_rmext, int(blankTemp.fileindex)+1)
+                    blankTemp2 = DatFile(os.path.join(readpath, blank2))
+                    blankTemp = dat.average([blankTemp, blankTemp2], [fraction, 1-fraction])
+                    fraction_string = '_{:.0f}'.format(100*fraction)
 
                 subtractedDat = dat.subtract(sampleTemp, blankTemp)
-                filename = os.path.join(writepath,''.join([os.path.splitext(subtractedDat.rootname)[0],'_',str(sampleNum).zfill(sampleNumLen),'_',str(blankNum).zfill(blankNumLen),'.dat']))
+
+                filename = os.path.join(writepath, ''.join([os.path.splitext(subtractedDat.rootname)[0], '_', str(sampleNum).zfill(sampleNumLen), '_', str(blankNum).zfill(blankNumLen), fraction_string, '.dat']))
                 subtractedDat.save(filename)
+
+                if analyse:
+                    pipeline = PipelineLite.PipelineLite(filename, analysispath)
+                    pipeline.runPipeline()
 
                 sampleNum += 1
                 blankNum += 1
                 num += 1
 
-                if analyse:
-                    pipeline = PipelineLite.PipelineLite(filename,analysispath)
-                    pipeline.runPipeline()
-
-            except OSError as e:
+            except IOError as e:
                 print e
                 break
         
