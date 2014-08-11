@@ -1,5 +1,5 @@
 import os
-
+import time
 import argparse
 import sys
 import logbook
@@ -59,7 +59,7 @@ def filter_on_attr_value(attr, value, target):
 @coroutine
 def load_dat(target):
     while True:
-        
+       
         item = (yield)
         directory,filename = os.path.split(item['ImageLocation'])
         filename = ''.join((os.path.splitext(filename)[0], '.dat'))
@@ -76,7 +76,7 @@ def load_dat(target):
 
             filesize = 0
             for count in range(30):
-                filesizetemp = os.path.getsize(filename)
+                filesizetemp = os.path.getsize(os.path.join(*patharray))
                 if filesizetemp == filesize:
                     break
                 filesize=filesizetemp
@@ -87,6 +87,7 @@ def load_dat(target):
                 dat.setuserdata({'flush': item['flush']})
             except Exception:
                 pass
+
             target.send(dat)
         except EnvironmentError:
             pass
@@ -160,6 +161,7 @@ def save_dat(folder, prefix=None):
             filename = os.path.join(os.path.split(directory)[0], folder, dat.basename)
         else:
             ## Offline mode
+            print 'save'
             filename = os.path.join(exp_directory, folder, dat.basename)
         
         print "saving profile to %s" % (filename,)
