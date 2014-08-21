@@ -9,6 +9,11 @@ from pprint import pprint
 import logbook
 logger = logbook.Logger(__name__)
 
+try:
+    import numpy as np
+except:
+    print "No numpy, some functions wont work"
+
           
 def average(dat_list, weight_list = []):
     
@@ -150,6 +155,24 @@ class DatFile(object):
             self.userData.update(data)
         except Exception:
             pass
+    
+    def getlogbin(self, points=100):
+        logspace = np.logspace(np.log10(self.q[0]),np.log10(self.q[-1]),points)
+        logelem = []
+        q = np.array(self.q)
+        for l in logspace:
+            logelem.append((np.abs(q-l)).argmin())
+        
+        return list(set(logelem))
+        
+    def logbinq(self, points=100):
+        return (np.array(self.q)[self.getlogbin(points)]).tolist()
+
+    def logbinintensities(self, points=100):
+        return (np.array(self.intensities)[self.getlogbin(points)]).tolist()
+    
+    def logbinerror(self, points=100):
+        return (np.array(self.error)[self.getlogbin(points)]).tolist()
         
     @property
     def rootname(self):
