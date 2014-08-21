@@ -172,7 +172,11 @@ def send_pipeline():
     while True:
         dat = (yield)
         filename = dat.filename
-        epn, experiment = filename.split('/')[4:6]
+        print filename
+        dir1, epn, experiment = filename.split('/')[-5:-2]
+        if epn in config['DetectorFolders']:
+            experiment = os.path.join(epn,experiment) 
+            epn = dir1
         print "epn %s, experiment %s, filename %s" % (epn, experiment, dat.basename)
         print "send to pipeline"
         pipeline.runPipeline(epn, experiment, dat.basename)
@@ -304,6 +308,9 @@ def retrieve_obj(obj, target):
         try:                
             target.send((obj.value, item))
         except AttributeError:
+            print "attr error"
+            pass
+        except Exception as e:
             pass
 
 @coroutine        
@@ -377,6 +384,7 @@ if __name__ == '__main__':
     ## samples pipeline
     if args.none is False:
         if args.lite is False:
+            print 'pipeline'
             pipeline_pipe = filter_new_sample(send_pipeline())
         else:
             pipeline_pipe = filter_new_sample(send_pipelinelite())
