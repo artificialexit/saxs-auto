@@ -75,7 +75,10 @@ class PipelineHarvest:
                 datfile = str(folders[-1]).replace('_autorg.out', '.dat')
                 values = value.split(' ')
                 keys = ['AutoRG_RG', 'AutoRG_RGE', 'AutoRG_I0', 'AutoRG_I0E', 'AutoRG_Start', 'AutoRG_End', 'AutoRG_Quality', 'AutoRG_ValidFlag']
-                valueMap = {keys[i]: values[i] for i in range(8)}
+                try:
+                    valueMap = {keys[i]: values[i] for i in range(8)}
+                except IndexError:
+                    return
                 self.redis.hmset('pipeline:results:' + datfile, valueMap)
 
             elif value_type == "porod_volume":

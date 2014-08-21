@@ -33,16 +33,24 @@ class OffsetSubtract():
         if not os.path.exists(writepath):
             writepath = os.path.abspath(os.path.join(readpath,writepath))
             if not os.path.exists(writepath):
-                print 'dat write path invalid, file not written'
-                return -1
+                try:
+                    os.mkdir(writepath)
+                except OSError:    
+                    if not os.path.isdir(writepath):
+                        print 'dat write path ' + writepath + ' invalid, file not written'
+                        raise
 
         if analyse:
             if not os.path.exists(analysispath):
                 analysispath = os.path.abspath(os.path.join(readpath,analysispath))
                 if not os.path.exists(analysispath):
-                    print 'analysis write path invalid, file not written'
-                    return -1
-                
+                    try:
+                        os.mkdir(analysispath)
+                    except OSError:
+                        if not os.path.isdir(analysispath):
+                            print 'analysis write path invalid, file not written'
+                            raise
+
         
         num = 0
         while True:
@@ -71,8 +79,15 @@ class OffsetSubtract():
                 num += 1
 
             except IOError as e:
-                print e
+                print 'IO'
                 break
+            
+            except OSError as e:
+                print 'OS'
+                break
+            
+            except Exception:
+                raise
         
         return num
         
