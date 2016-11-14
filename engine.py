@@ -72,7 +72,6 @@ class Engine(object):
             item = (yield)
             directory,filename = os.path.split(item['ImageLocation'])
             filename = ''.join((os.path.splitext(filename)[0], '.dat'))
-
             if self.exp_directory == 'beamline' :
                 ## For version running on beamline
                 patharray = ['/data/pilatus1M'] + directory.split('/')[2:-1] + ['raw_dat', filename]
@@ -80,7 +79,7 @@ class Engine(object):
             else:
                 ## Offline mode
                 patharray = [self.exp_directory, 'raw_dat', filename]
-
+                print os.path.join(*patharray)
             try:
 
                 filesize = 0
@@ -100,7 +99,6 @@ class Engine(object):
                 target.send(dat)
             except EnvironmentError:
                 pass
-
 
     @coroutine
     def moving_average(self, number, target=None):
@@ -150,6 +148,32 @@ class Engine(object):
                 if goodDats is not None:
                     target.send(dat.average(goodDats))
 
+
+    @coroutine
+    def average_water(self, target=None):
+
+        dats = []
+        lastname = ''
+
+        while True:
+            dats.append((yield))
+            try:
+                # root name change detection
+                if lastname != dats[-1].rootname:
+                    dats = dats[-1:]
+            except IndexError:
+                pass
+
+            lastname = dats[-1].rootname
+
+            if target:
+                goodDats = dat.rejection(dats)
+                if goodDats is not None:
+                    datavg = dat.average(goodDats)
+                    datavg.filename = os.path.join(datavg.dirname, 'water_' + datavg.basename)
+                    target.send(datavg)
+                else:
+                    print('None!!')
 
     @coroutine
     def subtract(self, target=None):
@@ -373,7 +397,7 @@ if __name__ == '__main__':
     r = redis.StrictRedis(host='localhost', port=6379, db=0)
     
     if offline is True:
-        redis_dat = no_op
+        redis_dat = engine.no_op
 
     else:
         ##Load last buffer from redis in case this is a recovery
@@ -390,6 +414,7 @@ if __name__ == '__main__':
             pass
     
     ## buffer pipeline
+    # Use this line if wanting to use autowater as buffer: buffers = engine.filter_on_attr('SampleType', ['0', '3', '8'], engine.load_dat(engine.average_water(engine.broadcast(engine.save_dat('avg'), redis_dat('avg_buf'), engine.store_obj(Buffer)))))
     buffers = engine.filter_on_attr('SampleType', ['0', '3'], engine.load_dat(engine.average(engine.broadcast(engine.save_dat('avg'), redis_dat('avg_buf'), engine.store_obj(Buffer)))))
     repbuffers = engine.filter_on_attr('SampleType', ['2', '5'], engine.load_dat(engine.average(engine.broadcast(engine.save_dat('avg'), redis_dat('avg_rep_buf')))))
         
